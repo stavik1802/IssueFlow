@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: issueflow
+  datasource:
+    url: jdbc:postgresql://localhost:5432/issueflow
+    username: issueflow
+    password: issueflow
+    driverClassName: org.postgresql.Driver
+    platform: postgres
+  jpa:
+    database: POSTGRESQL
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  sql:
+    init:
+      mode: never
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+issueflow:
+  bootstrap:
+    admin:
+      enabled: ${ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED:false}
+      username: ${ISSUEFLOW_BOOTSTRAP_ADMIN_USERNAME:}
+      email: ${ISSUEFLOW_BOOTSTRAP_ADMIN_EMAIL:}
+      full-name: ${ISSUEFLOW_BOOTSTRAP_ADMIN_FULL_NAME:}
+  attachments:
+    upload-directory: ${ISSUEFLOW_ATTACHMENT_UPLOAD_DIRECTORY:uploads/attachments}
+  security:
+    auth:
+      password: ${ISSUEFLOW_AUTH_PASSWORD:secret}
+    jwt:
+      secret: ${ISSUEFLOW_JWT_SECRET:change-this-development-secret-to-at-least-32-bytes}
+      expiration: ${ISSUEFLOW_JWT_EXPIRATION:1h}
