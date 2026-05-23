@@ -98,6 +98,9 @@ public class AttachmentService {
     @Transactional
     public void delete(Long ticketId, Long attachmentId, CurrentUser currentUser) {
         requireAuthenticated(currentUser);
+        if (!ticketRepository.existsActiveWithActiveProjectById(ticketId)) {
+            throw new NotFoundException("Ticket not found");
+        }
         Attachment attachment = findAttachment(attachmentId);
         if (!attachment.getTicket().getId().equals(ticketId)) {
             throw new NotFoundException(ATTACHMENT_NOT_FOUND);

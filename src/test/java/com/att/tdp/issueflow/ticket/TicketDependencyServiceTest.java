@@ -142,7 +142,7 @@ class TicketDependencyServiceTest {
 
         assertThatThrownBy(() -> ticketDependencyService.deleteDependency(100L, 42L))
                 .isInstanceOf(NotFoundException.class)
-                .hasMessage("Ticket not found");
+                .hasMessage("Ticket dependency not found");
 
         verify(ticketDependencyRepository, never()).deleteByTicketIdAndDependsOnTicketId(100L, 42L);
         verify(auditEventPublisher, never()).userAction(

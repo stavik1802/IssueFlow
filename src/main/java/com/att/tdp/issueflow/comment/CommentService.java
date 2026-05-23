@@ -135,6 +135,7 @@ public class CommentService {
 
     @Transactional
     public CommentResponse update(Long ticketId, Long commentId, UpdateCommentRequest request, CurrentUser currentUser) {
+        requireActiveTicket(ticketId);
         Comment comment = findCommentForUpdate(commentId);
         validateCommentBelongsToTicket(comment, ticketId);
         return updateComment(comment, request, currentUser);
@@ -174,6 +175,7 @@ public class CommentService {
 
     @Transactional
     public void delete(Long ticketId, Long commentId, CurrentUser currentUser) {
+        requireActiveTicket(ticketId);
         Comment comment = findComment(commentId);
         validateCommentBelongsToTicket(comment, ticketId);
         deleteComment(comment, currentUser);
@@ -202,11 +204,14 @@ public class CommentService {
                 .orElseThrow(() -> new NotFoundException(COMMENT_NOT_FOUND));
     }
 
+    private void requireActiveTicket(Long ticketId) {
+        if (!ticketRepository.existsActiveWithActiveProjectById(ticketId)) {
+            throw new NotFoundException("Ticket not found");
+        }
+    }
+
     private void validateCommentBelongsToTicket(Comment comment, Long ticketId) {
         if (comment.getTicket() == null || !comment.getTicket().getId().equals(ticketId)) {
-            throw new NotFoundException(COMMENT_NOT_FOUND);
-        }
-        if (!ticketRepository.existsActiveWithActiveProjectById(ticketId)) {
             throw new NotFoundException(COMMENT_NOT_FOUND);
         }
     }

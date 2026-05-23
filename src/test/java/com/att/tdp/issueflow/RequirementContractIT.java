@@ -1229,6 +1229,23 @@ class RequirementContractIT {
                 .andExpect(status().isOk())
                 .andReturn();
         String commentId = com.jayway.jsonpath.JsonPath.read(created.getResponse().getContentAsString(), "$.id").toString();
+        long missingTicketId = 999_999_901L;
+
+        mockMvc.perform(patch("/tickets/" + missingTicketId + "/comments/" + commentId)
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "content": "Missing parent update"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket not found"));
+
+        mockMvc.perform(delete("/tickets/" + missingTicketId + "/comments/" + commentId)
+                        .header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket not found"));
 
         mockMvc.perform(patch("/tickets/" + otherTicket.getId() + "/comments/" + commentId)
                         .header("Authorization", token)
@@ -1273,6 +1290,12 @@ class RequirementContractIT {
                 .andExpect(status().isOk())
                 .andReturn();
         String attachmentId = com.jayway.jsonpath.JsonPath.read(uploaded.getResponse().getContentAsString(), "$.id").toString();
+        long missingTicketId = 999_999_902L;
+
+        mockMvc.perform(delete("/tickets/" + missingTicketId + "/attachments/" + attachmentId)
+                        .header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket not found"));
 
         mockMvc.perform(delete("/tickets/" + otherTicket.getId() + "/attachments/" + attachmentId)
                         .header("Authorization", token))
@@ -1281,6 +1304,55 @@ class RequirementContractIT {
 
         assertThat(attachmentRepository.findActiveIdsByTicketIdIncludingDeletedTicket(ticket.getId()))
                 .contains(Long.parseLong(attachmentId));
+    }
+
+    @Test
+    void readmeNestedDependencyRoutesReturnSpecificParentAndDependencyErrors() throws Exception {
+        String suffix = suffix();
+        User user = seedUser("dependency-parent-user-" + suffix, Role.DEVELOPER);
+        Project project = seedProject("Dependency Parent " + suffix, user);
+        Ticket ticket = seedTicket(project, user, "Dependency parent ticket");
+        Ticket blocker = seedTicket(project, user, "Dependency blocker ticket");
+        String token = bearer(user);
+        long missingTicketId = 999_999_903L;
+        long missingBlockerId = 999_999_904L;
+
+        mockMvc.perform(post("/tickets/" + missingTicketId + "/dependencies")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "blockedBy": %d
+                                }
+                                """.formatted(blocker.getId())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket not found"));
+
+        mockMvc.perform(post("/tickets/" + ticket.getId() + "/dependencies")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "blockedBy": %d
+                                }
+                                """.formatted(missingBlockerId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Blocked ticket not found"));
+
+        mockMvc.perform(delete("/tickets/" + missingTicketId + "/dependencies/" + blocker.getId())
+                        .header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket not found"));
+
+        mockMvc.perform(delete("/tickets/" + ticket.getId() + "/dependencies/" + missingBlockerId)
+                        .header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Blocked ticket not found"));
+
+        mockMvc.perform(delete("/tickets/" + ticket.getId() + "/dependencies/" + blocker.getId())
+                        .header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Ticket dependency not found"));
     }
 
     @Test

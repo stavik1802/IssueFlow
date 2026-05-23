@@ -2,6 +2,8 @@
 
 This guide is written for a fresh clone on any developer machine or CI runner. It does not rely on an IDE, a personal filesystem path, or a manually configured Java installation path.
 
+Project assumptions and implementation decisions are documented in [assumptions.md](assumptions.md).
+
 ## Prerequisites
 
 Install:
@@ -145,12 +147,54 @@ issueflow:
   attachments:
     upload-directory: ${ISSUEFLOW_ATTACHMENT_UPLOAD_DIRECTORY:uploads/attachments}
   security:
+    auth:
+      password: ${ISSUEFLOW_AUTH_PASSWORD:secret}
     jwt:
       secret: ${ISSUEFLOW_JWT_SECRET:change-this-development-secret-to-at-least-32-bytes}
       expiration: ${ISSUEFLOW_JWT_EXPIRATION:1h}
 ```
 
-For shared environments or CI, provide a strong `ISSUEFLOW_JWT_SECRET` through the environment or secret manager.
+For shared environments or CI, provide `ISSUEFLOW_AUTH_PASSWORD`, `ISSUEFLOW_JWT_SECRET`, and `ISSUEFLOW_JWT_EXPIRATION` through the environment or secret manager.
+
+### Change Login Password and Token Expiration
+
+The application uses one global login password for `/auth/login`. By default it is:
+
+```text
+secret
+```
+
+Change it with `ISSUEFLOW_AUTH_PASSWORD`.
+
+Bash:
+
+```bash
+export ISSUEFLOW_AUTH_PASSWORD="my-global-password"
+export ISSUEFLOW_JWT_EXPIRATION="2h"
+export ISSUEFLOW_JWT_SECRET="my-super-long-secret-key-at-least-32-bytes"
+./mvnw spring-boot:run
+```
+
+PowerShell:
+
+```powershell
+$env:ISSUEFLOW_AUTH_PASSWORD="my-global-password"
+$env:ISSUEFLOW_JWT_EXPIRATION="2h"
+$env:ISSUEFLOW_JWT_SECRET="my-super-long-secret-key-at-least-32-bytes"
+.\mvnw.cmd spring-boot:run
+```
+
+Supported expiration examples:
+
+```text
+3600s = 3600 seconds
+2h    = 2 hours
+1d    = 1 day
+```
+
+The login response `expiresIn` is returned in seconds. For example, `ISSUEFLOW_JWT_EXPIRATION=2h` returns `"expiresIn": 7200`.
+
+The JWT secret must be long enough for HMAC signing. Use at least 32 bytes for development, and a strong secret from a secret manager for shared environments.
 
 ## Database Schema
 
@@ -171,35 +215,12 @@ spring:
 
 The application does not use `schema.sql` or `data.sql` for normal startup.
 
-## First Admin Bootstrap
 
 `POST /auth/login` and `POST /users` are public. Other API endpoints require JWT authentication.
 
-For a clean database, start the app once with bootstrap admin properties. The bootstrap runner creates the admin only if the username does not already exist.
 
-Bash:
 
-```bash
-ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED=true \
-ISSUEFLOW_BOOTSTRAP_ADMIN_USERNAME=admin \
-ISSUEFLOW_BOOTSTRAP_ADMIN_EMAIL=admin@example.com \
-ISSUEFLOW_BOOTSTRAP_ADMIN_FULL_NAME="IssueFlow Admin" \
-ISSUEFLOW_BOOTSTRAP_ADMIN_PASSWORD=password123 \
-./mvnw spring-boot:run
-```
 
-PowerShell:
-
-```powershell
-$env:ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED="true"
-$env:ISSUEFLOW_BOOTSTRAP_ADMIN_USERNAME="admin"
-$env:ISSUEFLOW_BOOTSTRAP_ADMIN_EMAIL="admin@example.com"
-$env:ISSUEFLOW_BOOTSTRAP_ADMIN_FULL_NAME="IssueFlow Admin"
-$env:ISSUEFLOW_BOOTSTRAP_ADMIN_PASSWORD="password123"
-.\mvnw.cmd spring-boot:run
-```
-
-After the admin exists, disable bootstrap for normal runs by removing those environment variables or setting `ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED=false`.
 
 ## Manual API Smoke Test
 

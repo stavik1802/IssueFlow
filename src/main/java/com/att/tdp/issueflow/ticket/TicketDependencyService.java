@@ -39,8 +39,8 @@ public class TicketDependencyService {
 
     @Transactional
     public DependencyResponse addDependency(Long ticketId, AddDependencyRequest request, CurrentUser currentUser) {
-        Ticket ticket = findTicket(ticketId);
-        Ticket blocker = findTicket(request.blockedBy());
+        Ticket ticket = findTicket(ticketId, "Ticket not found");
+        Ticket blocker = findTicket(request.blockedBy(), "Blocked ticket not found");
         validateDependency(ticket, blocker);
 
         TicketDependency dependency = new TicketDependency();
@@ -77,12 +77,14 @@ public class TicketDependencyService {
 
     @Transactional
     public void deleteDependency(Long ticketId, Long blockerId, CurrentUser currentUser) {
-        if (!ticketRepository.existsActiveWithActiveProjectById(ticketId)
-                || !ticketRepository.existsActiveWithActiveProjectById(blockerId)) {
+        if (!ticketRepository.existsActiveWithActiveProjectById(ticketId)) {
             throw new NotFoundException("Ticket not found");
         }
+        if (!ticketRepository.existsActiveWithActiveProjectById(blockerId)) {
+            throw new NotFoundException("Blocked ticket not found");
+        }
         if (!ticketDependencyRepository.existsByTicketIdAndDependsOnTicketId(ticketId, blockerId)) {
-            throw new NotFoundException("Ticket not found");
+            throw new NotFoundException("Ticket dependency not found");
         }
         ticketDependencyRepository.deleteByTicketIdAndDependsOnTicketId(ticketId, blockerId);
         auditEventPublisher.userAction(
@@ -129,8 +131,12 @@ public class TicketDependencyService {
     }
 
     private Ticket findTicket(Long ticketId) {
+        return findTicket(ticketId, "Ticket not found");
+    }
+
+    private Ticket findTicket(Long ticketId, String notFoundMessage) {
         return ticketRepository.findActiveWithActiveProjectById(ticketId)
-                .orElseThrow(() -> new NotFoundException("Ticket not found"));
+                .orElseThrow(() -> new NotFoundException(notFoundMessage));
     }
 
     private DependencyResponse toResponse(TicketDependency dependency) {
