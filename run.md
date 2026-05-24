@@ -141,9 +141,6 @@ spring:
       ddl-auto: validate
 
 issueflow:
-  bootstrap:
-    admin:
-      enabled: ${ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED:false}
   attachments:
     upload-directory: ${ISSUEFLOW_ATTACHMENT_UPLOAD_DIRECTORY:uploads/attachments}
   security:
@@ -215,12 +212,19 @@ spring:
 
 The application does not use `schema.sql` or `data.sql` for normal startup.
 
+## Authentication
 
-`POST /auth/login` and `POST /users` are public. Other API endpoints require JWT authentication.
+On startup, the application creates a default ADMIN user if it does not already exist:
 
+- Username: `admin`
+- User id: `0`
+- Email: `admin@issueflow.com`
+- Full name: `System Admin`
+- Role: `ADMIN`
 
+Users do not have individual passwords, and the User API does not accept or return password fields. Login checks that the username exists in the Users table and that the submitted password matches the single configured global password.
 
-
+Only `POST /auth/login` is public. All other API endpoints, including `POST /users`, require a JWT in the `Authorization` header.
 
 ## Manual API Smoke Test
 
@@ -229,7 +233,7 @@ Log in:
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password123"}'
+  -d '{"username":"admin","password":"secret"}'
 ```
 
 Use the returned token:
@@ -242,8 +246,16 @@ Create a user:
 
 ```bash
 curl -X POST http://localhost:8080/users \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"username":"dev1","email":"dev1@example.com","fullName":"Dev One","role":"DEVELOPER","password":"password123"}'
+  -d '{"username":"dev1","email":"dev1@example.com","fullName":"Dev One","role":"DEVELOPER"}'
+```
+
+Check the current authenticated user:
+
+```bash
+curl http://localhost:8080/auth/me \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Create a project:

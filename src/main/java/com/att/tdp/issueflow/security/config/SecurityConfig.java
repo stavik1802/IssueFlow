@@ -51,7 +51,6 @@ public class SecurityConfig {
                                 writeError(response, request, HttpStatus.FORBIDDEN, "Access is denied")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users").permitAll()
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

@@ -150,7 +150,7 @@ class IssueFlowEndToEndIT {
                 "email", "unauth-" + suffix + "@example.com",
                 "fullName", "Unauthenticated User",
                 "role", "DEVELOPER"
-        ), null).getStatusCode()).isEqualTo(HttpStatus.OK);
+        ), null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         String adminToken = login(admin.get("username").asText(), LOGIN_PASSWORD);
         JsonNode developerA = createUser("deva-" + suffix, "deva-" + suffix + "@example.com", "Developer A", "DEVELOPER", adminToken);
         JsonNode developerB = createUser("devb-" + suffix, "devb-" + suffix + "@example.com", "Developer B", "DEVELOPER", adminToken);

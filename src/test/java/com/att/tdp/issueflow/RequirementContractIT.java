@@ -74,27 +74,21 @@ class RequirementContractIT {
     private AuditLogRepository auditLogRepository;
 
     @Test
-    void userCreateUsesReadmeCamelCaseFullNameAndOkStatus() throws Exception {
+    void userCreateRequiresJwtAndUsesReadmeCamelCaseFullNameAndOkStatus() throws Exception {
         String suffix = suffix();
         String adminToken = bearer(seedUser("admin-" + suffix, Role.ADMIN));
 
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
+                {
                                   "username": "unauth-%s",
                                   "email": "unauth-%s@example.com",
                                   "fullName": "Unauthenticated User",
                                   "role": "DEVELOPER"
                                 }
                                 """.formatted(suffix, suffix)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("unauth-" + suffix))
-                .andExpect(jsonPath("$.email").value("unauth-" + suffix + "@example.com"))
-                .andExpect(jsonPath("$.fullName").value("Unauthenticated User"))
-                .andExpect(jsonPath("$.role").value("DEVELOPER"))
-                .andExpect(jsonPath("$.createdAt").doesNotExist())
-                .andExpect(jsonPath("$.updatedAt").doesNotExist());
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/users")
                         .header("Authorization", adminToken)

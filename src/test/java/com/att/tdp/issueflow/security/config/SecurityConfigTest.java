@@ -2,12 +2,18 @@ package com.att.tdp.issueflow.security.config;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.att.tdp.issueflow.audit.AuditAction;
+import com.att.tdp.issueflow.audit.AuditActorType;
+import com.att.tdp.issueflow.audit.AuditLogRepository;
+import com.att.tdp.issueflow.audit.AuditableEntityType;
 import com.att.tdp.issueflow.security.jwt.JwtTokenService;
 import com.att.tdp.issueflow.user.Role;
 import com.att.tdp.issueflow.user.User;
 import com.att.tdp.issueflow.user.UserRepository;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -28,6 +34,9 @@ class SecurityConfigTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AuditLogRepository auditLogRepository;
+
     @Test
     void protectedEndpointRequiresJwt() throws Exception {
         mockMvc.perform(get("/projects"))
@@ -35,7 +44,44 @@ class SecurityConfigTest {
     }
 
     @Test
-    void registrationIsPublic() throws Exception {
+    void seededAdminExistsAndCanLoginWithConfiguredGlobalPassword() throws Exception {
+        User admin = userRepository.findByUsername("admin").orElseThrow();
+
+        Assertions.assertThat(admin.getId()).isZero();
+        Assertions.assertThat(admin.getEmail()).isEqualTo("admin@issueflow.com");
+        Assertions.assertThat(admin.getFullName()).isEqualTo("System Admin");
+        Assertions.assertThat(admin.getRole()).isEqualTo(Role.ADMIN);
+        Assertions.assertThat(auditLogRepository.findAll()).anySatisfy(log -> {
+            Assertions.assertThat(log.getActorType()).isEqualTo(AuditActorType.SYSTEM);
+            Assertions.assertThat(log.getActorId()).isEqualTo(admin.getId());
+            Assertions.assertThat(log.getAction()).isEqualTo(AuditAction.CREATE);
+            Assertions.assertThat(log.getEntityType()).isEqualTo(AuditableEntityType.USER);
+            Assertions.assertThat(log.getEntityId()).isEqualTo(admin.getId());
+        });
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "admin",
+                                  "password": "secret"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(3600));
+
+        mockMvc.perform(get("/auth/me")
+                        .header("Authorization", "Bearer " + jwtTokenService.generateToken(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(admin.getId()))
+                .andExpect(jsonPath("$.username").value("admin"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void registrationRequiresJwt() throws Exception {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -46,7 +92,7 @@ class SecurityConfigTest {
                                   "role": "DEVELOPER"
                                 }
                                 """))
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

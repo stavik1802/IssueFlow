@@ -27,12 +27,6 @@ spring:
       max-request-size: 10MB
 
 issueflow:
-  bootstrap:
-    admin:
-      enabled: ${ISSUEFLOW_BOOTSTRAP_ADMIN_ENABLED:false}
-      username: ${ISSUEFLOW_BOOTSTRAP_ADMIN_USERNAME:}
-      email: ${ISSUEFLOW_BOOTSTRAP_ADMIN_EMAIL:}
-      full-name: ${ISSUEFLOW_BOOTSTRAP_ADMIN_FULL_NAME:}
   attachments:
     upload-directory: ${ISSUEFLOW_ATTACHMENT_UPLOAD_DIRECTORY:uploads/attachments}
   security:

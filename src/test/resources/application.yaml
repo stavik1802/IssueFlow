@@ -30,7 +30,7 @@ spring:
 
 issueflow:
   attachments:
-    upload-directory: ${java.io.tmpdir}/issueflow-test-attachments
+    upload-directory: target/test-attachments
   security:
     auth:
       password: secret

@@ -14,7 +14,6 @@ import com.att.tdp.issueflow.ticket.TicketPriority;
 import com.att.tdp.issueflow.ticket.TicketRepository;
 import com.att.tdp.issueflow.ticket.TicketStatus;
 import com.att.tdp.issueflow.ticket.TicketType;
-import com.att.tdp.issueflow.user.Role;
 import com.att.tdp.issueflow.user.User;
 import com.att.tdp.issueflow.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -169,34 +168,36 @@ class ApiTraceIT {
     void recordsAllApiCallsAndEdgeCasesAgainstRealPostgres() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8).toLowerCase(Locale.ROOT);
 
-        ResponseEntity<String> publicAdmin = postJson("create admin user before login", "/users", json(
-                "username", "admin-" + suffix,
-                "email", "admin-" + suffix + "@example.com",
-                "fullName", "Admin User",
-                "role", "ADMIN"
+        seedBootstrapAdmin();
+        long adminId = 0L;
+
+        ResponseEntity<String> login = postJson("login admin", "/auth/login", json(
+                "username", "admin",
+                "password", "secret"
         ), null, HttpStatus.OK);
-        long adminId = body(publicAdmin).get("id").asLong();
+        String adminToken = body(login).get("accessToken").asText();
+
+        postJson("login wrong password edge case", "/auth/login", json(
+                "username", "admin",
+                "password", "wrong"
+        ), null, HttpStatus.BAD_REQUEST);
+
+        get("protected endpoint without token edge case", "/projects", null, HttpStatus.UNAUTHORIZED);
+        postJson("create user without token edge case", "/users", json(
+                "username", "unauth-" + suffix,
+                "email", "unauth-" + suffix + "@example.com",
+                "fullName", "Unauthenticated User",
+                "role", "DEVELOPER"
+        ), null, HttpStatus.UNAUTHORIZED);
+        get("check seeded admin principal", "/auth/me", adminToken, HttpStatus.OK);
 
         ResponseEntity<String> invalidRole = postJson("create user invalid role edge case", "/users", json(
                 "username", "bad-role-" + suffix,
                 "email", "bad-role-" + suffix + "@example.com",
                 "fullName", "Bad Role",
                 "role", "MANAGER"
-        ), null, HttpStatus.BAD_REQUEST);
+        ), adminToken, HttpStatus.BAD_REQUEST);
         assertThat(body(invalidRole).get("message").asText()).isEqualTo("role must be one of: ADMIN, DEVELOPER");
-
-        ResponseEntity<String> login = postJson("login admin", "/auth/login", json(
-                "username", "admin-" + suffix,
-                "password", "secret"
-        ), null, HttpStatus.OK);
-        String adminToken = body(login).get("accessToken").asText();
-
-        postJson("login wrong password edge case", "/auth/login", json(
-                "username", "admin-" + suffix,
-                "password", "wrong"
-        ), null, HttpStatus.BAD_REQUEST);
-
-        get("protected endpoint without token edge case", "/projects", null, HttpStatus.UNAUTHORIZED);
 
         JsonNode devA = body(postJson("create developer A", "/users", json(
                 "username", "dev-a-" + suffix,
@@ -668,6 +669,25 @@ class ApiTraceIT {
     private JsonNode body(ResponseEntity<String> response) throws IOException {
         assertThat(response.getBody()).isNotBlank();
         return objectMapper.readTree(response.getBody());
+    }
+
+    private void seedBootstrapAdmin() {
+        jdbcTemplate.update("""
+                insert into users (
+                    id,
+                    version,
+                    created_at,
+                    updated_at,
+                    created_by,
+                    updated_by,
+                    username,
+                    email,
+                    display_name,
+                    role,
+                    active
+                )
+                values (0, 0, now(), now(), 0, 0, 'admin', 'admin@issueflow.com', 'System Admin', 'ADMIN', true)
+                """);
     }
 
     private HttpEntity<ByteArrayResource> filePart(String filename, String contentType, byte[] bytes) {
